@@ -1,0 +1,4 @@
+pycryptodome
+requests
+pkcs7
+tapo-plug
