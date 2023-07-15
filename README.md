@@ -1,4 +1,4 @@
-# mic-activity-monitor
+# On air light
 
 Automation of a home office 'on-air' light.
 
