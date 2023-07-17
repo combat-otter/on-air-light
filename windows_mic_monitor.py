@@ -2,6 +2,7 @@ import time
 import winreg
 import json
 import re
+import logging
 from tapo_plug import tapoPlugApi
 
 """
@@ -16,8 +17,13 @@ Requires a local config.json file with the following content:
 }
 """
 
-with open("config.json") as settings_file:
-    TAPO_CREDS = json.load(settings_file)
+
+# console logging setup
+logging.basicConfig(format="%(asctime)s %(levelname)-8s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+
+# config file currently only used for Tapo plug settings
+with open("config.json") as config_file:
+    TAPO_CREDS = json.load(config_file)
 
 
 def is_microphone_active():
@@ -37,7 +43,7 @@ def is_microphone_active():
 
                     if last_used_time_stop == 0:
                         app_name = re.sub(r"_([a-z0-9])+$", "", sub_key_name)
-                        print(f"{app_name} is using the microphone")
+                        logging.info(f"{app_name} is using the microphone")
                         active = True
                         break
 
@@ -63,7 +69,7 @@ def is_microphone_active():
 
                     if last_used_time_stop == 0:
                         app_name = re.sub(r"([\w:# \(\)\-])+#", "", sub_key_name)
-                        print(f"{app_name} is using the microphone")
+                        logging.info(f"{app_name} is using the microphone")
                         active = True
                         break
 
@@ -77,14 +83,22 @@ def is_microphone_active():
 def main():
     response = tapoPlugApi.getDeviceInfo(TAPO_CREDS)
     print(f"Using Tapo plug: {response}")
+    plug_on = False
 
     while True:
         if is_microphone_active():
-            tapoPlugApi.plugOn(TAPO_CREDS)
-        else:
-            tapoPlugApi.plugOff(TAPO_CREDS)
+            if not plug_on:
+                logging.info("Switching plug on")
+                response = json.loads(tapoPlugApi.plugOn(TAPO_CREDS))
+                plug_on = response["error_code"] == 0
 
-        time.sleep(2)
+        else:
+            if plug_on:
+                logging.info("Switching plug off")
+                response = json.loads(tapoPlugApi.plugOff(TAPO_CREDS))
+                plug_on = not response["error_code"] == 0
+
+        time.sleep(5)
 
 
 if __name__ == "__main__":
