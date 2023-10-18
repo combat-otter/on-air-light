@@ -1,4 +1,5 @@
 pycryptodome
 requests
 pkcs7
-tapo-plug
+PyP100 @ git+https://github.com/almottier/TapoP100.git@main
+

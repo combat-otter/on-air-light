@@ -3,7 +3,8 @@ import winreg
 import json
 import re
 import logging
-from tapo_plug import tapoPlugApi
+import contextlib
+from PyP100 import PyP100
 
 """
 Monitors Windows apps for microphone usage, switches plug on if mic is in use.
@@ -75,23 +76,36 @@ def get_app_using_mic():
     return app_name
 
 
+# add context manager to the plug api
+@contextlib.contextmanager
+def get_plug_instance():
+    plug_context = PyP100.P100(
+        address=TAPO_CREDS["tapoIp"],
+        email=TAPO_CREDS["tapoEmail"],
+        password=TAPO_CREDS["tapoPassword"],
+    )
+    yield plug_context
+    del plug_context
+
+
 def main():
-    response = json.loads(tapoPlugApi.getDeviceInfo(TAPO_CREDS))
-    pretty = json.dumps(response, indent=4, sort_keys=True)
-    logging.info(f"Using Tapo plug: {pretty}")
-
-    # set correct initial state
-    switched_on = response["result"]["device_on"]
-
     active_seconds = 0
     inactive_seconds = 0
     hysteresis = 10
 
-    try:
-        while True:
-            if int(time.time()) % 10 == 0:
-                response = json.loads(tapoPlugApi.getDeviceInfo(TAPO_CREDS))
-                logging.info(f"Plug powered: {response['result']['device_on']}")
+    switched_on = False
+
+    while True:
+        try:
+            time.sleep(1)
+
+            tick = int(time.time()) % 30
+            if tick == 0:
+                with get_plug_instance() as plug:
+                    response = plug.getDeviceInfo()
+                    logging.debug(response)
+                    logging.info(f"Plug powered: {response['device_on']}")
+                    switched_on = response["device_on"]
 
             app_using_mic = get_app_using_mic()
             if app_using_mic:
@@ -106,18 +120,22 @@ def main():
 
             if active_seconds > hysteresis and not switched_on:
                 logging.info("Switching plug on")
-                response = json.loads(tapoPlugApi.plugOn(TAPO_CREDS))
-                switched_on = response["error_code"] == 0
+                with get_plug_instance() as plug:
+                    plug.turnOn()
+                    switched_on = plug.getDeviceInfo()["device_on"]
 
             elif inactive_seconds > hysteresis and switched_on:
                 logging.info("Switching plug off")
-                response = json.loads(tapoPlugApi.plugOff(TAPO_CREDS))
-                switched_on = not response["error_code"] == 0
+                with get_plug_instance() as plug:
+                    plug.turnOff()
+                    switched_on = plug.getDeviceInfo()["device_on"]
 
-            time.sleep(1)
+        except KeyboardInterrupt:
+            break
 
-    except KeyboardInterrupt:
-        pass
+        except Exception as e:
+            logging.error(e)
+            continue
 
 
 if __name__ == "__main__":

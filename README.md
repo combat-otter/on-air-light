@@ -11,4 +11,3 @@ Relies on Tapo credentials being present in config.json:
     "tapoEmail": "ENTER YOUR TP-LINK EMAIL",
     "tapoPassword": "ENTER YOUR TP-LINK PWD"
 }
-
